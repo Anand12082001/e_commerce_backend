@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import colors from 'colors'
 import morgan from 'morgan'
 import cors from 'cors'
+
 import { notFound, errorHandler } from './middleware/errorMiddleware.js'
 import connectDB from './config/db.js'
 
@@ -13,68 +14,58 @@ import orderRoutes from './routes/orderRoutes.js'
 import uploadRoutes from './routes/uploadRoutes.js'
 
 dotenv.config()
-
 connectDB()
 
 const app = express()
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://your-netlify-site.netlify.app', // Replace with your actual Netlify URL
-  'https://e-commerce-backend-2yuj.onrender.com'
-]
+// ✅ CORS (important for Netlify)
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+)
 
-app.use(cors({
-  origin: function(origin, callback) {
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}))
-
+// Logging (dev only)
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'))
 }
 
+// Body parser
 app.use(express.json())
 
+// Routes
 app.use('/api/products', productRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/upload', uploadRoutes)
 
+// PayPal config
 app.get('/api/config/paypal', (req, res) =>
   res.send(process.env.PAYPAL_CLIENT_ID)
 )
 
+// Static uploads
 const __dirname = path.resolve()
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')))
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '/frontend/build')))
+// ✅ IMPORTANT: Only API response (NO frontend serving)
+app.get('/', (req, res) => {
+  res.send('API is running....')
+})
 
-  app.get('*', (req, res) =>
-    res.sendFile(path.resolve(__dirname, 'frontend', 'build', 'index.html'))
-  )
-} else {
-  app.get('/', (req, res) => {
-    res.send('API is running....')
-  })
-}
-
+// Error handlers
 app.use(notFound)
 app.use(errorHandler)
 
+// Server
 const PORT = process.env.PORT || 5000
 
 app.listen(
   PORT,
   console.log(
-    `Server running in ✅ ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold
+    `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold
   )
 )
